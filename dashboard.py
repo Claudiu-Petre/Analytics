@@ -6,7 +6,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # page configuration
-st.set_page_config(page_title='Analytics', page_icon=':bar_chart:', layout='wide')
+st.set_page_config(page_title='The Analyzer', page_icon=':bar_chart:', layout='wide')
 
 # document title with icon
 st.title(':bar_chart: The Analyzer') 
@@ -22,7 +22,7 @@ if fl is not None:
     st.write(filename)
     df = pd.read_csv(filename, encoding = 'ISO-8859-1')
 else:
-    os.chdir(r'Home/PROJECTS/CLAU-HUB/Dashboard')
+    # os.chdir(r'Home/PROJECTS/CLAU-HUB/Dashboard')
     df = pd.read_csv('Sample-Superstore.csv', encoding = 'ISO-8859-1')
 
 col1, col2 = st.columns((2))
@@ -116,3 +116,70 @@ with cl2:
         csv = region.to_csv(index= False).encode('utf-8')
         st.download_button('Download Data', data = csv, file_name= 'Region.csv', mime= 'text/csv', 
                            help= 'Click here to download the data as a CSV file')
+        
+# Time series Analysis based on MONTH_YEAR and AMOUNT
+filtered_df['month_year'] = filtered_df['Order Date'].dt.to_period('M')
+st.subheader('Time Series Analysis')
+
+linechart = pd.DataFrame(filtered_df.groupby(filtered_df['month_year'].dt.strftime('%Y : %b'))['Sales'].sum()).reset_index()
+
+fig2 = px.line(linechart, x = 'month_year', y = 'Sales', labels= {'Sales': "Amount"}, height= 500, width= 1000, template= 'gridon')
+st.plotly_chart(fig2, use_container_width=True)
+
+# Visualize the data from Time Series
+with st.expander('View Data of Time Series'):
+    st.write(linechart.T.style.background_gradient(cmap = 'Blues'))
+    csv = linechart.to_csv(index=False).encode('utf-8')
+    st.download_button('Download Data', data = csv, file_name= 'Time Series.csv', mime='text/csv')
+
+
+# A tree-map based on Region, Category and sub-Category
+
+st.subheader('Hierarchical view of Sales using TreeMap')
+fig3 = px.treemap(filtered_df, path = ['Region', 'Category', 'Sub-Category'], values='Sales', hover_data= ['Sales'], 
+                  color='Sub-Category')
+fig3.update_layout(width= 800, height = 650)
+st.plotly_chart(fig3, use_container_width=True)
+
+# Segment Wise Sales
+chart1, chart2 = st.columns((2))
+with chart1:
+    st.subheader('Segment Wise Sales')
+    fig = px.pie(filtered_df, values='Sales', names= 'Segment', template= 'plotly_dark')
+    fig.update_traces(text= filtered_df['Segment'], textposition = 'inside')
+    st.plotly_chart(fig, use_container_width= True)
+
+with chart2:
+    st.subheader('Category Wise Sales')
+    fig = px.pie(filtered_df, values='Sales', names= 'Category', template= 'gridon')
+    fig.update_traces(text= filtered_df['Category'], textposition = 'inside')
+    st.plotly_chart(fig, use_container_width= True)
+
+
+import plotly.figure_factory as ff
+st.subheader(':point_right: Month Wise Sub-Category Sales Summary')
+with st.expander('Summary_Table:'):
+    df_sample = df[0:5][['Region', 'State', 'City', 'Category', 'Sales', 'Profit', 'Quantity']]
+    fig = ff.create_table(df_sample, colorscale= 'cividis')
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown('Month Wise Sub-Category Table')
+    filtered_df['month'] = filtered_df['Order Date'].dt.month_name()
+    sub_category_Year = pd.pivot_table(data = filtered_df, values = 'Sales', index= ['Sub-Category'],
+                                         columns= 'month')
+    st.write(sub_category_Year.style.background_gradient(cmap='Blues'))
+
+# Create a scatter plot
+data1 = px.scatter(filtered_df, x ='Sales', y = 'Profit', size = 'Quantity')
+data1 ['layout'].update(title='Relationship between Sales and Profits using Scatter Plot.',
+                        titlefont=dict(size=20), xaxis = dict(title='Sales', titlefont= dict(size=19)),
+                        yaxis = dict(title='Profit',titlefont = dict(size=19)))
+
+st.plotly_chart(data1, use_container_width=True)
+
+with st.expander('View Data'):
+    st.write(filtered_df.iloc[:500,1:20:2].style.background_gradient(cmap='Oranges'))
+
+# Download original DataSet
+csv = df.to_csv(index = False).encode('utf-8')
+st.download_button('Download Data', data = csv, file_name = 'Data.csv', mime='text/csv')
